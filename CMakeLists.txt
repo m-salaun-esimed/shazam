@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.29)
 
 # Nom du projet et de l'exécutable généré
-project(template_cpp_cmake)
+project(shazam)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -28,9 +28,18 @@ set(TESTS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 #######################################################
 # Partie à mettre à jour manuellement
 # Liste des fichiers sources des modules des exercices
+
 # Exécutable principal
 add_executable(${PROJECT_NAME}
         ${SRC_DIR}/main.cpp
+        src/audio.cpp
+        include/audio.h
+        src/fft.cpp
+        include/fft.h
+        src/fingerprint.cpp
+        include/fingerprint.h
+        src/database.cpp
+        include/database.h
 )
 target_sources(${PROJECT_NAME}
         PUBLIC
@@ -54,7 +63,7 @@ target_sources(tests
 
 # bibliothèque pour les tests unitaires
 include(cmake/catch2.cmake)
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain std-cxx-modules)
+target_link_libraries(tests Catch2::Catch2WithMain std-cxx-modules)
 include(CTest)
 include(Catch)
 catch_discover_tests(tests)
