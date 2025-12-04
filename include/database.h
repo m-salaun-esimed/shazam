@@ -38,7 +38,7 @@ namespace database {
 
         // Stockage en mémoire
         std::map<int, Song> songs;  // songId -> Song
-        std::unordered_map<uint32_t, std::vector<StoredFingerprint>> fingerprintIndex;  // hash -> fingerprints
+        std::unordered_map<uint64_t, std::vector<StoredFingerprint>> fingerprintIndex;  // hash -> fingerprints
         std::map<int, int> songFingerprintCounts;  // songId -> nombre de fingerprints (CACHE)
 
         void loadFromFile();

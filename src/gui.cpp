@@ -17,7 +17,6 @@ namespace fs = std::filesystem;
 
 namespace gui {
 
-    // Button implementation - Design moderne
     Button::Button(const sf::Vector2f& position, const sf::Vector2f& size,
                    const std::string& label, const sf::Font& font)
         : text(font) {
@@ -95,7 +94,7 @@ namespace gui {
         window.draw(label);
     }
 
-    // GUI implementation - Design moderne sombre
+    // GUI implementation
     GUI::GUI(database::Database& database)
         : window(sf::VideoMode{{1000, 700}}, "Shazam Local - Reconnaissance Audio"),
           db(database),
@@ -390,12 +389,13 @@ namespace gui {
             handleEvents();
             render();
 
-            auto matches = db.search(queryFingerprints, 5);
+            // Rechercher avec un minScore adaptatif (plus permissif)
+            auto matches = db.search(queryFingerprints, 3);
 
-            // Filtrer pour ne garder que les matches avec confiance >= 90%
+            // Filtrer pour ne garder que les matches avec confiance >= 70%
             std::vector<database::Match> goodMatches;
             for (const auto& match : matches) {
-                if (match.confidence >= 90.0f) {
+                if (match.confidence >= 70.0f) {
                     goodMatches.push_back(match);
                 }
             }
@@ -532,8 +532,9 @@ namespace gui {
 
         searchResults.push_back("Nombre de recherches effectuees: " + std::to_string(searchHistory.size()));
         searchResults.push_back("");
-        searchResults.push_back("Seuil de confiance: >= 90%");
-        searchResults.push_back("Duree d'analyse par query: ~5 secondes");
+        searchResults.push_back("Seuil de confiance: >= 70%");
+        searchResults.push_back("Duree d'analyse par query: ~10 secondes");
+        searchResults.push_back("Mode: Time-invariant (supporte extraits du milieu)");
 
         statusMessage = std::to_string(songs.size()) + " chansons dans la base";
         setupResultsScreen();
@@ -659,4 +660,4 @@ namespace gui {
         }
     }
 
-} // namespace gui
+}

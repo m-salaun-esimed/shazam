@@ -7,7 +7,7 @@
 namespace fingerprint {
 
     // Constantes pour l'optimisation des queries
-    constexpr int QUERY_MAX_DURATION_SECONDS = 5;  // Durée max pour recherche
+    constexpr int QUERY_MAX_DURATION_SECONDS = 10;  // Durée max pour recherche (augmentée à 10s)
     constexpr int SAMPLE_RATE = 44100;
     constexpr int HOP_SIZE = 2048;
     constexpr int QUERY_MAX_FRAMES = (QUERY_MAX_DURATION_SECONDS * SAMPLE_RATE) / HOP_SIZE;
