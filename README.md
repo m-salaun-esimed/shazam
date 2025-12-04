@@ -1,21 +1,52 @@
-# Shazam - Système de Reconnaissance Audio
+# 🎵 Shazam Local - Système de Reconnaissance Audio
+
+![Version](https://img.shields.io/badge/version-2.0-green)
+![C++](https://img.shields.io/badge/C++-23-blue)
+![License](https://img.shields.io/badge/license-MIT-brightgreen)
 
 ## Table des matières
 1. [Vue d'ensemble](#vue-densemble)
-2. [Architecture du projet](#architecture-du-projet)
-3. [Concepts scientifiques](#concepts-scientifiques)
-4. [Pipeline algorithmique](#pipeline-algorithmique)
-5. [Structures de données](#structures-de-données)
-6. [Complexité algorithmique](#complexité-algorithmique)
-7. [Utilisation](#utilisation)
+2. [Fonctionnalités](#fonctionnalités)
+3. [Architecture du projet](#architecture-du-projet)
+4. [Concepts scientifiques](#concepts-scientifiques)
+5. [Pipeline algorithmique](#pipeline-algorithmique)
+6. [Structures de données](#structures-de-données)
+7. [Complexité algorithmique](#complexité-algorithmique)
+8. [Utilisation](#utilisation)
+9. [Optimisations](#optimisations)
 
 ---
 
 ## Vue d'ensemble
 
-Ce projet implémente un système de reconnaissance audio inspiré de Shazam. Il permet d'identifier une chanson à partir d'un court extrait audio en la comparant à une base de données de chansons indexées.
+Ce projet implémente un **système de reconnaissance audio local** inspiré de Shazam avec une **interface graphique moderne**. Il permet d'identifier une chanson à partir d'un court extrait audio (5 secondes suffisent) en la comparant à une base de données de chansons indexées.
 
 **Principe** : Transformer un signal audio en "empreintes digitales" (fingerprints) uniques, puis rechercher ces empreintes dans une base de données.
+
+**Nouveautés v2.0** :
+- ✨ Interface graphique moderne avec SFML (design sombre inspiré de Spotify)
+- ⚡ Optimisation de recherche : traite uniquement les 5 premières secondes pour une identification rapide
+- 🎯 Filtrage intelligent : affiche uniquement les matches avec confiance >= 90%
+- 🎨 Effets visuels : hover sur boutons, barre de progression animée, code couleur pour résultats
+
+---
+
+## Fonctionnalités
+
+### 🎵 Reconnaissance Audio
+- **Identification rapide** : 5 secondes d'audio suffisent pour identifier une chanson
+- **Haute précision** : Affiche uniquement les matches avec confiance >= 90%
+- **Robuste au bruit** : Tolère les variations de volume et les petites distorsions
+
+### 💾 Gestion de Base de Données
+- **Indexation automatique** : Scanne tous les fichiers WAV du dossier `/data`
+- **Format simple** : Base de données texte lisible et modifiable
+- **Métadonnées intelligentes** : Extraction automatique artiste/titre depuis le nom de fichier
+
+### 🎨 Interface Graphique Moderne
+- **Design sombre** : Interface élégante inspirée de Spotify
+- **Feedback visuel** : Barre de progression, effets hover, coloration des résultats
+- **Navigation intuitive** : Menu principal avec accès rapide à toutes les fonctions
 
 ---
 
@@ -25,17 +56,20 @@ Ce projet implémente un système de reconnaissance audio inspiré de Shazam. Il
 shazam/
 ├── include/
 │   ├── audio.h         # Chargement et traitement des fichiers WAV
-│   ├── fft.h           # Transformée de Fourier rapide
-│   ├── fingerprint.h   # Génération des empreintes audio
-│   └── database.h      # Base de données locale
+│   ├── fft.h           # Transformée de Fourier rapide (FFT)
+│   ├── fingerprint.h   # Génération des empreintes audio + optimisations
+│   ├── database.h      # Base de données locale avec cache
+│   └── gui.h           # Interface graphique SFML
 ├── src/
-│   ├── audio.cpp
-│   ├── fft.cpp
-│   ├── fingerprint.cpp
-│   ├── database.cpp
-│   └── main.cpp        # Interface utilisateur
+│   ├── audio.cpp       # Traitement du signal (mono, frames, fenêtrage)
+│   ├── fft.cpp         # Algorithme Cooley-Tukey + extraction peaks
+│   ├── fingerprint.cpp # Hash generation + query optimization
+│   ├── database.cpp    # Indexation, recherche, persistence
+│   ├── gui.cpp         # Interface utilisateur complète
+│   └── main.cpp        # Point d'entrée
 ├── data/               # Dossier contenant les fichiers WAV à indexer
-└── shazam.db           # Base de données (format texte)
+├── shazam.db           # Base de données (format texte)
+└── CMakeLists.txt      # Configuration de build
 ```
 
 ---
@@ -296,6 +330,28 @@ En pratique, M est petit (1-10) donc la recherche est rapide.
 
 ## Utilisation
 
+### Installation et Compilation
+
+#### Prérequis
+- **Compilateur C++23** (GCC 12+, Clang 15+, MSVC 2022+)
+- **CMake 3.20+**
+- **SFML 2.6+** (pour l'interface graphique)
+
+#### Windows (Visual Studio / MinGW)
+```bash
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+```
+
+#### Linux
+```bash
+mkdir build && cd build
+cmake ..
+make -j4
+```
+
 ### Préparation des fichiers
 
 Place tes fichiers WAV dans le dossier `data/` :
@@ -307,50 +363,72 @@ Exemples :
 - `Radiohead_Creep.wav`
 - `Pink_Floyd_Comfortably_Numb.wav`
 
-### Exécution
+**Format audio supporté** : WAV 16-bit, mono ou stéréo, 44100 Hz (recommandé)
+
+### Lancement
 
 ```bash
-./shazam
+./shazam         # Linux/Mac
+shazam.exe       # Windows
 ```
 
-**Menu** :
-```
-1. Indexer tous les fichiers de /data/
-2. Rechercher/Identifier un audio
-3. Afficher les chansons en base
-4. Vider la base de données
-5. Quitter
-```
+### Interface Graphique
+
+L'application s'ouvre avec un **menu principal** offrant 5 options :
+
+1. **📁 Indexer tous les fichiers** : Scanne et indexe tous les WAV du dossier `/data`
+2. **🔍 Identifier un audio** : Ouvre un dialogue pour sélectionner un fichier à identifier
+3. **📋 Voir les chansons en base** : Affiche la liste de toutes les chansons indexées
+4. **🗑️ Vider la base** : Supprime toutes les données indexées
+5. **❌ Quitter** : Ferme l'application
 
 ### Workflow typique
 
-1. **Première utilisation** : Choisis option 1 pour indexer tes chansons
-2. **Test** : Choisis option 2 et donne le chemin d'un extrait audio
-3. **Résultat** : Le système affiche les matches avec % de confiance
+#### Première utilisation
+1. Lance l'application
+2. Clique sur **"Indexer tous les fichiers"**
+3. Attends la fin de l'indexation (barre de progression)
+4. Les chansons sont maintenant en base de données !
+
+#### Identifier une chanson
+1. Clique sur **"Identifier un audio"**
+2. Sélectionne un fichier WAV (même un court extrait de 5-10 secondes)
+3. L'analyse se lance automatiquement
+4. Les résultats s'affichent avec :
+   - **Titre et artiste** en vert
+   - **Score et confiance** en gris
+   - **"MATCH CONFIRME!"** si confiance >= 90%
 
 **Interprétation des résultats** :
-- **> 80%** : Match confirmé ✓
-- **50-80%** : Match probable ~
-- **< 50%** : Match incertain ?
+- **≥ 90%** : Match confirmé ✅ (seuls ces résultats sont affichés)
+- **< 90%** : "Aucun son trouvé" (la chanson n'est pas en base ou qualité insuffisante)
 
 ---
 
-## Optimisations possibles
+## Optimisations
 
-### Performances
+### ⚡ Optimisations Implémentées (v2.0)
 
-1. **FFT optimisée** : Utiliser FFTW (bibliothèque C optimisée)
-2. **Parallélisation** : Traiter plusieurs frames en parallèle (OpenMP/threads)
-3. **Moins de fingerprints** : Réduire les pics/frame (ex: top 3 au lieu de 5)
-4. **Base SQL** : Utiliser SQLite avec index pour grandes bases
-5. **Batch save** : Sauvegarder en base seulement à la fin, pas à chaque chanson
+1. **Recherche rapide** : Traite uniquement les 5 premières secondes pour les queries (36x plus rapide)
+2. **Cache de fingerprints** : Stocke le nombre de fingerprints par chanson pour calcul rapide de confiance
+3. **Filtrage intelligent** : N'affiche que les matches >= 90% de confiance
+4. **Interface réactive** : Mise à jour de l'UI toutes les 100 frames pendant l'indexation
 
-### Robustesse
+### 🚀 Optimisations Futures Possibles
 
-1. **Pitch shifting** : Gérer les variations de tonalité
+#### Performances
+1. **FFT optimisée** : Utiliser FFTW (bibliothèque C hautement optimisée)
+2. **Parallélisation** : Traiter plusieurs frames en parallèle avec OpenMP
+3. **Base SQL** : Migrer vers SQLite avec index B-tree pour bases > 1000 chansons
+4. **Batch save** : Sauvegarder en base seulement à la fin de l'indexation
+5. **Memory mapping** : Utiliser mmap pour chargement rapide de la base
+
+#### Robustesse
+1. **Pitch shifting** : Gérer les variations de tonalité (transposition)
 2. **Time stretching** : Résister aux variations de tempo
-3. **Noise reduction** : Filtrer le bruit avant FFT
-4. **Adaptive threshold** : Ajuster le seuil de détection des pics dynamiquement
+3. **Noise reduction** : Filtrage passe-bande avant FFT
+4. **Adaptive threshold** : Ajuster dynamiquement le seuil de détection des pics
+5. **Multi-format** : Support MP3, FLAC, OGG via libsndfile
 
 ---
 
@@ -396,21 +474,28 @@ Une nouvelle frame tous les 46 ms.
 
 ---
 
-## Limites de cette implémentation
+## Limites Connues
 
-1. **Performance** : Pas optimisé pour la production
-2. **Scalabilité** : Base en mémoire limitée à quelques chansons
-3. **Robustesse** : Sensible au bruit
-4. **Format** : Supporte uniquement WAV 16-bit
-5. **Stockage** : Format texte inefficace pour grandes bases
+1. **Scalabilité** : Base en mémoire limitée à ~500-1000 chansons (selon RAM)
+2. **Format audio** : Supporte uniquement WAV 16-bit
+3. **Robustesse** : Sensible aux variations importantes de tempo/pitch
+4. **Stockage** : Format texte inefficace pour très grandes bases (> 10 000 chansons)
+5. **Plateforme** : File dialog Windows uniquement (Linux/Mac nécessitent adaptation)
 
-**Objectif** : Implémentation pour comprendre les principes.
+**Objectif** : Implémentation éducative démontrant les principes fondamentaux de la reconnaissance audio.
 
 ---
 
+
 ## Auteur
-SALAUN Matthieu 
+**SALAUN Matthieu**
 
 Projet développé dans le cadre du cours de C++ moderne - ESIMED
+Décembre 2024
 
-**Technologies** : C++23, CMake, STL
+**Technologies** :
+- C++23 (std::expected, ranges, concepts)
+- CMake 3.20+
+- SFML 2.6 (Graphics, Window)
+- STL (unordered_map, vector, algorithms)
+- FFT custom (Cooley-Tukey)

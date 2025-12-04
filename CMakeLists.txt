@@ -25,6 +25,14 @@ set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 # Répertoire contenant les sources des tests unitaires
 set(TESTS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 
+include(FetchContent)
+FetchContent_Declare(SFML
+        GIT_REPOSITORY https://github.com/SFML/SFML.git
+        GIT_TAG 3.0.2
+        GIT_SHALLOW ON
+        EXCLUDE_FROM_ALL
+        SYSTEM)
+FetchContent_MakeAvailable(SFML)
 #######################################################
 # Partie à mettre à jour manuellement
 # Liste des fichiers sources des modules des exercices
@@ -40,12 +48,8 @@ add_executable(${PROJECT_NAME}
         include/fingerprint.h
         src/database.cpp
         include/database.h
-)
-target_sources(${PROJECT_NAME}
-        PUBLIC
-        FILE_SET CXX_MODULES
-        FILES
-        ${SRC_DIR}/exo1.ixx
+        src/gui.cpp
+        include/gui.h
 )
 compile_options(${PROJECT_NAME})
 
@@ -60,7 +64,7 @@ target_sources(tests
         ${SRC_DIR}/exo1.ixx
 )
 #######################################################
-
+target_link_libraries(${PROJECT_NAME} SFML::Graphics)
 # bibliothèque pour les tests unitaires
 include(cmake/catch2.cmake)
 target_link_libraries(tests Catch2::Catch2WithMain std-cxx-modules)

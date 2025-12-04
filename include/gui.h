@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <thread>
+#include <atomic>
+#include <mutex>
 #include "database.h"
 
 namespace gui {
@@ -57,17 +60,27 @@ namespace gui {
 
         std::string selectedAudioPath;
         std::vector<std::string> searchResults;
+        std::vector<std::string> searchHistory;  // History of searches
         std::string statusMessage;
 
         sf::Text titleText;
         sf::Text statusText;
         sf::RectangleShape resultBox;
 
+        // Multithreading
+        std::atomic<bool> processingActive{false};
+        std::atomic<float> processingProgress{0.0f};
+        std::mutex statusMutex;
+        std::string processingStatus;
+        std::thread workerThread;
+
         void setupMainMenu();
         void setupIndexingScreen();
         void setupSearchingScreen();
         void setupViewSongsScreen();
         void setupResultsScreen();
+        void displayStats();
+        void displayHistory();
 
         void handleEvents();
         void update();
@@ -81,6 +94,7 @@ namespace gui {
 
     public:
         GUI(database::Database& database);
+        ~GUI();
         void run();
     };
 

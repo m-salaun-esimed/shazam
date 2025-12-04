@@ -6,6 +6,12 @@
 
 namespace fingerprint {
 
+    // Constantes pour l'optimisation des queries
+    constexpr int QUERY_MAX_DURATION_SECONDS = 5;  // Durée max pour recherche
+    constexpr int SAMPLE_RATE = 44100;
+    constexpr int HOP_SIZE = 2048;
+    constexpr int QUERY_MAX_FRAMES = (QUERY_MAX_DURATION_SECONDS * SAMPLE_RATE) / HOP_SIZE;
+
     // Structure représentant un fingerprint (empreinte)
     struct Fingerprint {
         uint64_t hash;      // Hash unique généré à partir des peaks
@@ -24,5 +30,14 @@ namespace fingerprint {
         const std::vector<std::vector<fft::Peak>>& peaksByFrame,
         int targetZone = 5,
         int fanout = 3
+    );
+
+    // Version optimisée pour la recherche : limite aux N premières secondes
+    // Beaucoup plus rapide car traite moins de frames
+    std::vector<Fingerprint> generateFingerprintsForQuery(
+        const std::vector<std::vector<fft::Peak>>& peaksByFrame,
+        int targetZone = 5,
+        int fanout = 3,
+        int maxFrames = QUERY_MAX_FRAMES
     );
 }

@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <sstream>
 #include <iomanip>
+#include <ctime>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -16,24 +17,24 @@ namespace fs = std::filesystem;
 
 namespace gui {
 
-    // Button implementation
+    // Button implementation - Design moderne
     Button::Button(const sf::Vector2f& position, const sf::Vector2f& size,
-                   const std::string& label, const sf::Font& font) {
+                   const std::string& label, const sf::Font& font)
+        : text(font) {
         shape.setPosition(position);
         shape.setSize(size);
-        shape.setFillColor(sf::Color(70, 130, 180));
-        shape.setOutlineThickness(2);
-        shape.setOutlineColor(sf::Color::White);
+        shape.setFillColor(sf::Color(30, 215, 96));  // Spotify green
+        shape.setOutlineThickness(0);
 
-        text.setFont(font);
         text.setString(label);
-        text.setCharacterSize(20);
+        text.setCharacterSize(22);
         text.setFillColor(sf::Color::White);
+        text.setStyle(sf::Text::Bold);
 
         sf::FloatRect textBounds = text.getLocalBounds();
-        text.setOrigin(textBounds.left + textBounds.width / 2.0f,
-                      textBounds.top + textBounds.height / 2.0f);
-        text.setPosition(position.x + size.x / 2.0f, position.y + size.y / 2.0f);
+        text.setOrigin({textBounds.position.x + textBounds.size.x / 2.0f,
+                       textBounds.position.y + textBounds.size.y / 2.0f});
+        text.setPosition({position.x + size.x / 2.0f, position.y + size.y / 2.0f});
     }
 
     bool Button::contains(const sf::Vector2f& point) const {
@@ -42,10 +43,16 @@ namespace gui {
 
     void Button::draw(sf::RenderWindow& window) {
         if (!enabled) {
-            shape.setFillColor(sf::Color(50, 50, 50));
-            text.setFillColor(sf::Color(100, 100, 100));
+            shape.setFillColor(sf::Color(60, 60, 60));
+            text.setFillColor(sf::Color(120, 120, 120));
         } else {
-            shape.setFillColor(sf::Color(70, 130, 180));
+            // Hover effect
+            sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+            if (shape.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos))) {
+                shape.setFillColor(sf::Color(40, 235, 116));  // Lighter green on hover
+            } else {
+                shape.setFillColor(sf::Color(30, 215, 96));  // Normal green
+            }
             text.setFillColor(sf::Color::White);
         }
         window.draw(shape);
@@ -56,22 +63,21 @@ namespace gui {
         enabled = enable;
     }
 
-    // ProgressBar implementation
-    ProgressBar::ProgressBar(const sf::Vector2f& position, const sf::Vector2f& size, const sf::Font& font) {
+    // ProgressBar implementation - Design moderne
+    ProgressBar::ProgressBar(const sf::Vector2f& position, const sf::Vector2f& size, const sf::Font& font)
+        : label(font) {
         background.setPosition(position);
         background.setSize(size);
-        background.setFillColor(sf::Color(50, 50, 50));
-        background.setOutlineThickness(2);
-        background.setOutlineColor(sf::Color::White);
+        background.setFillColor(sf::Color(40, 40, 40));
+        background.setOutlineThickness(0);
 
         fill.setPosition(position);
         fill.setSize(sf::Vector2f(0, size.y));
-        fill.setFillColor(sf::Color(0, 200, 0));
+        fill.setFillColor(sf::Color(30, 215, 96));  // Spotify green
 
-        label.setFont(font);
-        label.setCharacterSize(18);
-        label.setFillColor(sf::Color::White);
-        label.setPosition(position.x + 10, position.y + size.y + 10);
+        label.setCharacterSize(16);
+        label.setFillColor(sf::Color(200, 200, 200));
+        label.setPosition({position.x, position.y + size.y + 10});
     }
 
     void ProgressBar::setProgress(float value) {
@@ -89,35 +95,45 @@ namespace gui {
         window.draw(label);
     }
 
-    // GUI implementation
+    // GUI implementation - Design moderne sombre
     GUI::GUI(database::Database& database)
-        : window(sf::VideoMode(1000, 700), "Shazam Local - Audio Recognition"),
+        : window(sf::VideoMode{{1000, 700}}, "Shazam Local - Reconnaissance Audio"),
           db(database),
           currentScreen(Screen::MAIN_MENU),
-          progressBar(sf::Vector2f(100, 500), sf::Vector2f(800, 40), font) {
+          titleText(font),
+          statusText(font),
+          progressBar(sf::Vector2f(100, 580), sf::Vector2f(800, 30), font) {
 
-        if (!font.loadFromFile("C:/Windows/Fonts/arial.ttf")) {
+        if (!font.openFromFile("C:/Windows/Fonts/arial.ttf")) {
             std::cerr << "Failed to load font!" << std::endl;
         }
 
-        titleText.setFont(font);
-        titleText.setCharacterSize(48);
-        titleText.setFillColor(sf::Color(70, 130, 180));
+        titleText.setCharacterSize(56);
+        titleText.setFillColor(sf::Color(30, 215, 96));  // Spotify green
         titleText.setString("Shazam Local");
-        titleText.setPosition(300, 50);
+        titleText.setStyle(sf::Text::Bold);
 
-        statusText.setFont(font);
-        statusText.setCharacterSize(18);
-        statusText.setFillColor(sf::Color::White);
-        statusText.setPosition(50, 600);
+        sf::FloatRect titleBounds = titleText.getLocalBounds();
+        titleText.setOrigin({titleBounds.position.x + titleBounds.size.x / 2.0f,
+                            titleBounds.position.y + titleBounds.size.y / 2.0f});
+        titleText.setPosition({500, 60});
 
-        resultBox.setPosition(50, 200);
-        resultBox.setSize(sf::Vector2f(900, 350));
-        resultBox.setFillColor(sf::Color(30, 30, 30));
-        resultBox.setOutlineThickness(2);
-        resultBox.setOutlineColor(sf::Color::White);
+        statusText.setCharacterSize(15);
+        statusText.setFillColor(sf::Color(180, 180, 180));
+        statusText.setPosition({100, 655});
+
+        resultBox.setPosition({50, 180});
+        resultBox.setSize(sf::Vector2f(900, 370));
+        resultBox.setFillColor(sf::Color(25, 25, 25));
+        resultBox.setOutlineThickness(0);
 
         setupMainMenu();
+    }
+
+    GUI::~GUI() {
+        if (workerThread.joinable()) {
+            workerThread.join();
+        }
     }
 
     std::string GUI::openFileDialog() {
@@ -147,25 +163,36 @@ namespace gui {
     void GUI::setupMainMenu() {
         buttons.clear();
         currentScreen = Screen::MAIN_MENU;
-        statusMessage = "Bienvenue! Choisissez une option ci-dessous.";
 
-        buttons.emplace_back(sf::Vector2f(300, 200), sf::Vector2f(400, 60),
-                            "Indexer tous les fichiers /data/", font);
+        auto songs = db.getAllSongs();
+        statusMessage = "Base de donnees: " + std::to_string(songs.size()) + " chansons | " +
+                       std::to_string(searchHistory.size()) + " recherches effectuees";
+
+        buttons.emplace_back(sf::Vector2f(150, 200), sf::Vector2f(280, 55),
+                            "Indexer /data/", font);
         buttons.back().onClick = [this]() { setupIndexingScreen(); };
 
-        buttons.emplace_back(sf::Vector2f(300, 280), sf::Vector2f(400, 60),
-                            "Rechercher / Identifier un audio", font);
+        buttons.emplace_back(sf::Vector2f(150, 275), sf::Vector2f(280, 55),
+                            "Identifier fichier", font);
         buttons.back().onClick = [this]() { setupSearchingScreen(); };
 
-        buttons.emplace_back(sf::Vector2f(300, 360), sf::Vector2f(400, 60),
-                            "Afficher les chansons en base", font);
+        buttons.emplace_back(sf::Vector2f(150, 350), sf::Vector2f(280, 55),
+                            "Voir chansons", font);
         buttons.back().onClick = [this]() { displaySongs(); };
 
-        buttons.emplace_back(sf::Vector2f(300, 440), sf::Vector2f(400, 60),
-                            "Vider la base de donnees", font);
+        buttons.emplace_back(sf::Vector2f(570, 200), sf::Vector2f(280, 55),
+                            "Statistiques BDD", font);
+        buttons.back().onClick = [this]() { displayStats(); };
+
+        buttons.emplace_back(sf::Vector2f(570, 275), sf::Vector2f(280, 55),
+                            "Historique", font);
+        buttons.back().onClick = [this]() { displayHistory(); };
+
+        buttons.emplace_back(sf::Vector2f(570, 350), sf::Vector2f(280, 55),
+                            "Vider BDD", font);
         buttons.back().onClick = [this]() { clearDatabase(); };
 
-        buttons.emplace_back(sf::Vector2f(300, 520), sf::Vector2f(400, 60),
+        buttons.emplace_back(sf::Vector2f(360, 450), sf::Vector2f(280, 55),
                             "Quitter", font);
         buttons.back().onClick = [this]() { window.close(); };
     }
@@ -189,7 +216,7 @@ namespace gui {
         currentScreen = Screen::SEARCHING;
         statusMessage = "Selectionnez un fichier audio a identifier";
 
-        buttons.emplace_back(sf::Vector2f(300, 400), sf::Vector2f(400, 60),
+        buttons.emplace_back(sf::Vector2f(300, 300), sf::Vector2f(400, 60),
                             "Choisir un fichier audio", font);
         buttons.back().onClick = [this]() {
             selectedAudioPath = openFileDialog();
@@ -198,11 +225,11 @@ namespace gui {
             }
         };
 
-        buttons.emplace_back(sf::Vector2f(300, 480), sf::Vector2f(400, 60),
+        buttons.emplace_back(sf::Vector2f(300, 380), sf::Vector2f(400, 60),
                             "Lancer la recherche", font);
         buttons.back().onClick = [this]() { searchAudio(); };
 
-        buttons.emplace_back(sf::Vector2f(300, 560), sf::Vector2f(400, 60),
+        buttons.emplace_back(sf::Vector2f(300, 460), sf::Vector2f(400, 60),
                             "Retour au menu", font);
         buttons.back().onClick = [this]() { setupMainMenu(); };
     }
@@ -246,6 +273,7 @@ namespace gui {
             progressBar.setText("Traitement: " + fs::path(wavPath).filename().string() +
                               " (" + std::to_string(i + 1) + "/" + std::to_string(wavFiles.size()) + ")");
 
+            handleEvents();
             render();
 
             try {
@@ -273,7 +301,14 @@ namespace gui {
                 auto window = audio::hannWindow(frameSize);
 
                 std::vector<std::vector<fft::Peak>> allPeaks;
-                for (auto& frame : frames) {
+                for (size_t frameIdx = 0; frameIdx < frames.size(); ++frameIdx) {
+                    auto& frame = frames[frameIdx];
+
+                    // Update UI every 100 frames
+                    if (frameIdx % 100 == 0) {
+                        handleEvents();
+                    }
+
                     for (size_t j = 0; j < frame.size(); ++j) {
                         frame[j] *= window[j];
                     }
@@ -312,6 +347,7 @@ namespace gui {
         statusMessage = "Analyse en cours...";
         progressBar.setProgress(0.3f);
         progressBar.setText("Extraction des fingerprints...");
+        handleEvents();
         render();
 
         try {
@@ -325,6 +361,7 @@ namespace gui {
 
             progressBar.setProgress(0.5f);
             progressBar.setText("Calcul FFT...");
+            handleEvents();
             render();
 
             std::vector<std::vector<fft::Peak>> allPeaks;
@@ -342,23 +379,45 @@ namespace gui {
 
             progressBar.setProgress(0.7f);
             progressBar.setText("Generation des fingerprints...");
+            handleEvents();
             render();
 
-            auto queryFingerprints = fingerprint::generateFingerprints(allPeaks, 5, 3);
+            // Utiliser la version optimisée pour la recherche (limite aux premières secondes)
+            auto queryFingerprints = fingerprint::generateFingerprintsForQuery(allPeaks, 5, 3);
 
             progressBar.setProgress(0.9f);
             progressBar.setText("Recherche dans la base...");
+            handleEvents();
             render();
 
             auto matches = db.search(queryFingerprints, 5);
 
+            // Filtrer pour ne garder que les matches avec confiance >= 90%
+            std::vector<database::Match> goodMatches;
+            for (const auto& match : matches) {
+                if (match.confidence >= 90.0f) {
+                    goodMatches.push_back(match);
+                }
+            }
+
             searchResults.clear();
-            if (matches.empty()) {
-                searchResults.push_back("Aucune correspondance trouvee.");
-                searchResults.push_back("La chanson n'est pas dans la base de donnees.");
+            if (goodMatches.empty()) {
+                searchResults.push_back("Aucun son trouve.");
+                searchResults.push_back("La chanson n'est pas dans la base de donnees");
+                searchResults.push_back("ou la qualite audio est insuffisante.");
+
+                // Add to history
+                auto now = std::time(nullptr);
+                auto tm = std::localtime(&now);
+                std::ostringstream historyEntry;
+                historyEntry << "[" << std::put_time(tm, "%H:%M:%S") << "] Fichier: "
+                            << fs::path(selectedAudioPath).filename().string()
+                            << " - Aucun match";
+                searchHistory.push_back(historyEntry.str());
             } else {
-                for (size_t i = 0; i < matches.size() && i < 5; ++i) {
-                    const auto& match = matches[i];
+                // Afficher uniquement les meilleurs matches (confiance >= 90%)
+                for (size_t i = 0; i < goodMatches.size() && i < 3; ++i) {
+                    const auto& match = goodMatches[i];
                     std::ostringstream oss;
                     oss << "Match #" << (i + 1) << ": " << match.song.artist << " - " << match.song.title;
                     searchResults.push_back(oss.str());
@@ -368,14 +427,28 @@ namespace gui {
                         << std::fixed << std::setprecision(1) << match.confidence << "%";
                     searchResults.push_back(oss.str());
 
-                    if (match.confidence > 80.0f) {
-                        searchResults.push_back("  MATCH CONFIRME!");
-                    } else if (match.confidence > 50.0f) {
-                        searchResults.push_back("  Match probable");
-                    } else {
-                        searchResults.push_back("  Match incertain");
-                    }
+                    // Calculate time in song
+                    int timeInSeconds = (match.timeOffset * hopSize) / wav.sampleRate;
+                    int minutes = timeInSeconds / 60;
+                    int seconds = timeInSeconds % 60;
+                    oss.str("");
+                    oss << "  Trouve a " << minutes << "m " << seconds << "s dans la chanson";
+                    searchResults.push_back(oss.str());
+
+                    searchResults.push_back("  MATCH CONFIRME!");
                     searchResults.push_back("");
+
+                    // Add to history (first match only)
+                    if (i == 0) {
+                        auto now = std::time(nullptr);
+                        auto tm = std::localtime(&now);
+                        std::ostringstream historyEntry;
+                        historyEntry << "[" << std::put_time(tm, "%H:%M:%S") << "] Fichier: "
+                                    << fs::path(selectedAudioPath).filename().string()
+                                    << " -> " << match.song.artist << " - " << match.song.title
+                                    << " (" << std::fixed << std::setprecision(0) << match.confidence << "%)";
+                        searchHistory.push_back(historyEntry.str());
+                    }
                 }
             }
 
@@ -416,16 +489,91 @@ namespace gui {
         statusMessage = "Base de donnees videe avec succes!";
     }
 
+    void GUI::displayStats() {
+        searchResults.clear();
+        auto songs = db.getAllSongs();
+
+        // Count total fingerprints
+        int totalFingerprints = 0;
+        for (const auto& song : songs) {
+            // We need to access the database internals for this
+            // For now, estimate based on song duration (approx 100 fingerprints per second)
+            totalFingerprints += static_cast<int>(song.duration * 100);
+        }
+
+        searchResults.push_back("=== STATISTIQUES DE LA BASE DE DONNEES ===");
+        searchResults.push_back("");
+        searchResults.push_back("Nombre total de chansons: " + std::to_string(songs.size()));
+        searchResults.push_back("");
+        searchResults.push_back("Fingerprints estimes: ~" + std::to_string(totalFingerprints));
+        searchResults.push_back("");
+
+        // Calculate total duration
+        float totalDuration = 0.0f;
+        for (const auto& song : songs) {
+            totalDuration += song.duration;
+        }
+        int totalMinutes = static_cast<int>(totalDuration / 60);
+        int totalSeconds = static_cast<int>(totalDuration) % 60;
+
+        searchResults.push_back("Duree totale indexee: " + std::to_string(totalMinutes) + "m " +
+                               std::to_string(totalSeconds) + "s");
+        searchResults.push_back("");
+
+        // Database file size
+        if (fs::exists("shazam.db")) {
+            auto fileSize = fs::file_size("shazam.db");
+            float fileSizeMB = fileSize / (1024.0f * 1024.0f);
+            std::ostringstream oss;
+            oss << "Taille du fichier BDD: " << std::fixed << std::setprecision(2) << fileSizeMB << " MB";
+            searchResults.push_back(oss.str());
+        }
+        searchResults.push_back("");
+
+        searchResults.push_back("Nombre de recherches effectuees: " + std::to_string(searchHistory.size()));
+        searchResults.push_back("");
+        searchResults.push_back("Seuil de confiance: >= 90%");
+        searchResults.push_back("Duree d'analyse par query: ~5 secondes");
+
+        statusMessage = std::to_string(songs.size()) + " chansons dans la base";
+        setupResultsScreen();
+    }
+
+    void GUI::displayHistory() {
+        searchResults.clear();
+
+        searchResults.push_back("=== HISTORIQUE DES RECHERCHES ===");
+        searchResults.push_back("");
+
+        if (searchHistory.empty()) {
+            searchResults.push_back("Aucune recherche effectuee pour le moment.");
+        } else {
+            // Show last 15 searches (most recent first)
+            int startIdx = std::max(0, static_cast<int>(searchHistory.size()) - 15);
+            for (int i = searchHistory.size() - 1; i >= startIdx; --i) {
+                searchResults.push_back(searchHistory[i]);
+            }
+
+            searchResults.push_back("");
+            searchResults.push_back("Total: " + std::to_string(searchHistory.size()) + " recherche(s)");
+        }
+
+        statusMessage = "Affichage des " + std::to_string(std::min(15, static_cast<int>(searchHistory.size()))) +
+                       " dernieres recherches";
+        setupResultsScreen();
+    }
+
+
     void GUI::handleEvents() {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
+        while (auto event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) {
                 window.close();
             }
 
-            if (event.type == sf::Event::MouseButtonPressed) {
-                if (event.mouseButton.button == sf::Mouse::Left) {
-                    sf::Vector2f mousePos(event.mouseButton.x, event.mouseButton.y);
+            if (const auto* mousePressed = event->getIf<sf::Event::MouseButtonPressed>()) {
+                if (mousePressed->button == sf::Mouse::Button::Left) {
+                    sf::Vector2f mousePos(static_cast<float>(mousePressed->position.x),
+                                         static_cast<float>(mousePressed->position.y));
                     for (auto& button : buttons) {
                         if (button.contains(mousePos) && button.onClick) {
                             button.onClick();
@@ -441,9 +589,20 @@ namespace gui {
     }
 
     void GUI::render() {
-        window.clear(sf::Color(20, 20, 30));
+        window.clear(sf::Color(18, 18, 18));  // Dark background
+
+        // Sous-titre discret
+        sf::Text subtitle(font);
+        subtitle.setCharacterSize(18);
+        subtitle.setFillColor(sf::Color(150, 150, 150));
+        subtitle.setString("Reconnaissance audio locale");
+        sf::FloatRect subBounds = subtitle.getLocalBounds();
+        subtitle.setOrigin({subBounds.position.x + subBounds.size.x / 2.0f,
+                           subBounds.position.y + subBounds.size.y / 2.0f});
+        subtitle.setPosition({500, 110});
 
         window.draw(titleText);
+        window.draw(subtitle);
 
         for (auto& button : buttons) {
             button.draw(window);
@@ -453,21 +612,36 @@ namespace gui {
             progressBar.draw(window);
         }
 
-        if (currentScreen == Screen::RESULTS) {
+        if (currentScreen == Screen::RESULTS || currentScreen == Screen::VIEW_SONGS) {
             window.draw(resultBox);
 
-            sf::Text resultText;
-            resultText.setFont(font);
-            resultText.setCharacterSize(16);
-            resultText.setFillColor(sf::Color::White);
+            sf::Text resultText(font);
+            resultText.setCharacterSize(17);
+            resultText.setFillColor(sf::Color(220, 220, 220));
 
-            float yPos = 220;
+            float yPos = 200;
             for (const auto& line : searchResults) {
+                // Colorer differemment selon le type de ligne
+                if (line.find("Match #") != std::string::npos ||
+                    line.find("ID:") != std::string::npos) {
+                    resultText.setFillColor(sf::Color(30, 215, 96));  // Green for titles
+                    resultText.setStyle(sf::Text::Bold);
+                } else if (line.find("MATCH CONFIRME") != std::string::npos) {
+                    resultText.setFillColor(sf::Color(30, 215, 96));
+                    resultText.setStyle(sf::Text::Bold);
+                } else if (line.find("Confiance") != std::string::npos) {
+                    resultText.setFillColor(sf::Color(180, 180, 180));
+                    resultText.setStyle(sf::Text::Regular);
+                } else {
+                    resultText.setFillColor(sf::Color(200, 200, 200));
+                    resultText.setStyle(sf::Text::Regular);
+                }
+
                 resultText.setString(line);
-                resultText.setPosition(70, yPos);
+                resultText.setPosition({70, yPos});
                 window.draw(resultText);
-                yPos += 25;
-                if (yPos > 520) break;
+                yPos += 28;
+                if (yPos > 530) break;
             }
         }
 

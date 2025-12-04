@@ -59,4 +59,51 @@ namespace fingerprint {
 
         return fingerprints;
     }
+
+    std::vector<Fingerprint> generateFingerprintsForQuery(
+        const std::vector<std::vector<fft::Peak>>& peaksByFrame,
+        int targetZone,
+        int fanout,
+        int maxFrames
+    ) {
+        std::vector<Fingerprint> fingerprints;
+
+        // Limiter le nombre de frames pour optimiser la recherche
+        size_t framesToProcess = std::min(peaksByFrame.size(), static_cast<size_t>(maxFrames));
+
+        for (size_t anchorFrame = 0; anchorFrame < framesToProcess; ++anchorFrame) {
+            const auto& anchorPeaks = peaksByFrame[anchorFrame];
+
+            for (const auto& anchorPeak : anchorPeaks) {
+                int pairsCreated = 0;
+
+                for (int dt = 1; dt <= targetZone && (anchorFrame + dt) < framesToProcess; ++dt) {
+                    const auto& targetPeaks = peaksByFrame[anchorFrame + dt];
+
+                    for (const auto& targetPeak : targetPeaks) {
+                        Fingerprint fp;
+                        fp.hash = generateHash(
+                            static_cast<int>(anchorPeak.frequency),
+                            static_cast<int>(targetPeak.frequency),
+                            dt
+                        );
+                        fp.timeOffset = static_cast<int>(anchorFrame);
+
+                        fingerprints.push_back(fp);
+
+                        pairsCreated++;
+                        if (pairsCreated >= fanout) {
+                            break;
+                        }
+                    }
+
+                    if (pairsCreated >= fanout) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        return fingerprints;
+    }
 }

@@ -62,6 +62,7 @@ namespace database {
 
                     if (iss >> hash >> delimiter >> fp.songId >> delimiter >> fp.timeOffset) {
                         fingerprintIndex[hash].push_back(fp);
+                        songFingerprintCounts[fp.songId]++; // Mettre à jour le cache
                     }
                 }
             }
@@ -119,6 +120,9 @@ namespace database {
             fingerprintIndex[fp.hash].push_back(stored);
         }
 
+        // Mettre à jour le cache
+        songFingerprintCounts[songId] = fingerprints.size();
+
         std::cout << "Added song ID " << songId << ": " << song.title
                   << " with " << fingerprints.size() << " fingerprints" << std::endl;
 
@@ -129,6 +133,7 @@ namespace database {
     std::vector<Match> Database::search(const std::vector<fingerprint::Fingerprint>& queryFingerprints, int minScore) {
         std::map<std::pair<int, int>, int> matchCounts;
 
+        // Phase 1: Compter les matches
         for (const auto& queryFp : queryFingerprints) {
             auto it = fingerprintIndex.find(queryFp.hash);
             if (it != fingerprintIndex.end()) {
@@ -139,8 +144,17 @@ namespace database {
             }
         }
 
+        // Trier les matches par score pour traiter les meilleurs en premier
+        std::vector<std::pair<std::pair<int, int>, int>> sortedMatches(matchCounts.begin(), matchCounts.end());
+        std::sort(sortedMatches.begin(), sortedMatches.end(),
+            [](const auto& a, const auto& b) {
+                return a.second > b.second; // Trier par count décroissant
+            });
+
+        // Phase 2: Créer les résultats et early exit si confiance >= 90%
         std::vector<Match> results;
-        for (const auto& [key, count] : matchCounts) {
+
+        for (const auto& [key, count] : sortedMatches) {
             if (count >= minScore) {
                 auto songIt = songs.find(key.first);
                 if (songIt != songs.end()) {
@@ -149,18 +163,9 @@ namespace database {
                     match.score = count;
                     match.timeOffset = key.second;
 
-                    // Count total fingerprints for this song
-                    int songFingerprintCount = 0;
-                    for (const auto& [hash, fps] : fingerprintIndex) {
-                        for (const auto& fp : fps) {
-                            if (fp.songId == key.first) {
-                                songFingerprintCount++;
-                            }
-                        }
-                    }
-
-                    // Use the smaller of the two sets to ensure confidence never exceeds 100%
-                    int denominator = std::min(static_cast<int>(queryFingerprints.size()), songFingerprintCount);
+                    // Utiliser le cache pour le nombre de fingerprints
+                    int songFpCount = songFingerprintCounts[key.first];
+                    int denominator = std::min(static_cast<int>(queryFingerprints.size()), songFpCount);
                     match.confidence = (count * 100.0f) / denominator;
 
                     // Cap at 100% just in case
@@ -169,14 +174,15 @@ namespace database {
                     }
 
                     results.push_back(match);
+
+                    // Early exit si confiance >= 90%
+                    if (match.confidence >= 90.0f) {
+                        std::cout << "Early exit: Match trouvé avec " << match.confidence << "% de confiance!" << std::endl;
+                        return {match};
+                    }
                 }
             }
         }
-
-        std::sort(results.begin(), results.end(),
-            [](const Match& a, const Match& b) {
-                return a.score > b.score;
-            });
 
         return results;
     }
@@ -192,6 +198,7 @@ namespace database {
     void Database::clear() {
         songs.clear();
         fingerprintIndex.clear();
+        songFingerprintCounts.clear();
         nextSongId = 1;
         saveToFile();
         std::cout << "Database cleared" << std::endl;
