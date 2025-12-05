@@ -59,12 +59,13 @@ namespace database {
                 else if (section == "fingerprints") {
                     std::istringstream iss(line);
                     uint64_t hash;
-                    StoredFingerprint fp;
+                    int songId;
+                    int timeOffset;
                     char delimiter;
 
-                    if (iss >> hash >> delimiter >> fp.songId >> delimiter >> fp.timeOffset) {
-                        fingerprintIndex[hash].push_back(fp);
-                        songFingerprintCounts[fp.songId]++; // Mettre à jour le cache
+                    if (iss >> hash >> delimiter >> songId >> delimiter >> timeOffset) {
+                        fingerprintIndex[hash][songId].push_back(timeOffset);
+                        songFingerprintCounts[songId]++; // Mettre à jour le cache
                     }
                 }
             }
@@ -98,9 +99,11 @@ namespace database {
 
         file << "\n[FINGERPRINTS]\n";
         file << "# hash|songId|timeOffset\n";
-        for (const auto& [hash, fingerprints] : fingerprintIndex) {
-            for (const auto& fp : fingerprints) {
-                file << hash << "|" << fp.songId << "|" << fp.timeOffset << "\n";
+        for (const auto& [hash, songMap] : fingerprintIndex) {
+            for (const auto& [songId, offsets] : songMap) {
+                for (int timeOffset : offsets) {
+                    file << hash << "|" << songId << "|" << timeOffset << "\n";
+                }
             }
         }
 
@@ -115,11 +118,9 @@ namespace database {
         newSong.id = songId;
         songs[songId] = newSong;
 
+        // Nouvelle structure multi-niveau : hash -> songId -> vector<timeOffset>
         for (const auto& fp : fingerprints) {
-            StoredFingerprint stored;
-            stored.songId = songId;
-            stored.timeOffset = fp.timeOffset;
-            fingerprintIndex[fp.hash].push_back(stored);
+            fingerprintIndex[fp.hash][songId].push_back(fp.timeOffset);
         }
 
         // Mettre à jour le cache
@@ -149,21 +150,27 @@ namespace database {
         std::unordered_map<int, SongMatch> matchCounts;  // songId -> SongMatch
         int totalMatches = 0;
 
-        // Phase 1: Compter les matches avec tracking du meilleur offset en temps réel
+        // Phase 1: Compter les matches avec la nouvelle structure multi-niveau
+        // Avantage : accès direct par songId, pas besoin de parcourir tous les fingerprints
         for (const auto& queryFp : queryFingerprints) {
-            auto it = fingerprintIndex.find(queryFp.hash);
-            if (it != fingerprintIndex.end()) {
+            auto hashIt = fingerprintIndex.find(queryFp.hash);
+            if (hashIt != fingerprintIndex.end()) {
                 totalMatches++;
-                for (const auto& storedFp : it->second) {
-                    int offsetDelta = storedFp.timeOffset - queryFp.timeOffset;
+                // Parcourir uniquement les chansons qui ont ce hash (structure optimisée)
+                const auto& songMap = hashIt->second;
+                for (const auto& [songId, offsets] : songMap) {
+                    auto& songMatch = matchCounts[songId];
 
-                    auto& songMatch = matchCounts[storedFp.songId];
-                    int newCount = ++songMatch.offsetCounts[offsetDelta];
+                    // Parcourir tous les offsets de cette chanson pour ce hash
+                    for (int storedOffset : offsets) {
+                        int offsetDelta = storedOffset - queryFp.timeOffset;
+                        int newCount = ++songMatch.offsetCounts[offsetDelta];
 
-                    // Mettre à jour le meilleur offset en temps réel (évite le parcours complet)
-                    if (newCount > songMatch.bestCount) {
-                        songMatch.bestCount = newCount;
-                        songMatch.bestOffset = offsetDelta;
+                        // Mettre à jour le meilleur offset en temps réel
+                        if (newCount > songMatch.bestCount) {
+                            songMatch.bestCount = newCount;
+                            songMatch.bestOffset = offsetDelta;
+                        }
                     }
                 }
             }

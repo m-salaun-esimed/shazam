@@ -43,11 +43,6 @@ Ce projet implémente un **système de reconnaissance audio local** inspiré de 
 - **Format simple** : Base de données texte lisible et modifiable
 - **Métadonnées intelligentes** : Extraction automatique artiste/titre depuis le nom de fichier
 
-### 🎨 Interface Graphique Moderne
-- **Design sombre** : Interface élégante inspirée de Spotify
-- **Feedback visuel** : Barre de progression, effets hover, coloration des résultats
-- **Navigation intuitive** : Menu principal avec accès rapide à toutes les fonctions
-
 ---
 
 ## Architecture du projet

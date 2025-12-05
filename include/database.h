@@ -24,9 +24,8 @@ namespace database {
         float confidence;       // Confiance du match (0-100%)
     };
 
-    // Stockage d'un fingerprint avec sa chanson et son temps
+    // Stockage d'un fingerprint avec son temps uniquement (songId est dans la clé)
     struct StoredFingerprint {
-        int songId;
         int timeOffset;
     };
 
@@ -36,9 +35,11 @@ namespace database {
         std::string dbPath;
         int nextSongId = 1;
 
-        // Stockage en mémoire
+        // Stockage en mémoire optimisé : hashing multi-niveau
         std::map<int, Song> songs;  // songId -> Song
-        std::unordered_map<uint64_t, std::vector<StoredFingerprint>> fingerprintIndex;  // hash -> fingerprints
+        // hash -> (songId -> vector<timeOffset>)
+        // Avantage : accès direct aux offsets d'une chanson spécifique sans parcourir toutes les chansons
+        std::unordered_map<uint64_t, std::unordered_map<int, std::vector<int>>> fingerprintIndex;
         std::map<int, int> songFingerprintCounts;  // songId -> nombre de fingerprints (CACHE)
 
         void loadFromFile();
