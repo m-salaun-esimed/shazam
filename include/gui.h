@@ -14,9 +14,11 @@ namespace gui {
     enum class Screen {
         MAIN_MENU,
         INDEXING,
+        INDEXING_SINGLE,
         SEARCHING,
         VIEW_SONGS,
-        RESULTS
+        RESULTS,
+        CONFIRM_CLEAR
     };
 
     class Button {
@@ -76,9 +78,11 @@ namespace gui {
 
         void setupMainMenu();
         void setupIndexingScreen();
+        void setupIndexingSingleScreen();
         void setupSearchingScreen();
         void setupViewSongsScreen();
         void setupResultsScreen();
+        void setupConfirmClearScreen();
         void displayStats();
         void displayHistory();
 
@@ -88,6 +92,7 @@ namespace gui {
 
         std::string openFileDialog();
         void indexAllFiles();
+        void indexSingleFile();
         void searchAudio();
         void displaySongs();
         void clearDatabase();
