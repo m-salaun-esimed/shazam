@@ -45,9 +45,11 @@ namespace gui {
             shape.setFillColor(sf::Color(60, 60, 60));
             text.setFillColor(sf::Color(120, 120, 120));
         } else {
-            // Hover effect
-            sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-            if (shape.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos))) {
+            // Hover effect - convertir les coordonnées pixel en coordonnées monde
+            sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
+            sf::Vector2f mousePos = window.mapPixelToCoords(pixelPos);
+
+            if (shape.getGlobalBounds().contains(mousePos)) {
                 shape.setFillColor(sf::Color(40, 235, 116));  // Lighter green on hover
             } else {
                 shape.setFillColor(sf::Color(30, 215, 96));  // Normal green
@@ -167,31 +169,35 @@ namespace gui {
         statusMessage = "Base de donnees: " + std::to_string(songs.size()) + " chansons | " +
                        std::to_string(searchHistory.size()) + " recherches effectuees";
 
-        buttons.emplace_back(sf::Vector2f(150, 200), sf::Vector2f(280, 55),
+        buttons.emplace_back(sf::Vector2f(150, 180), sf::Vector2f(280, 50),
                             "Indexer /data/", font);
         buttons.back().onClick = [this]() { setupIndexingScreen(); };
 
-        buttons.emplace_back(sf::Vector2f(150, 275), sf::Vector2f(280, 55),
+        buttons.emplace_back(sf::Vector2f(150, 245), sf::Vector2f(280, 50),
+                            "Ajouter un son", font);
+        buttons.back().onClick = [this]() { setupIndexingSingleScreen(); };
+
+        buttons.emplace_back(sf::Vector2f(150, 310), sf::Vector2f(280, 50),
                             "Identifier fichier", font);
         buttons.back().onClick = [this]() { setupSearchingScreen(); };
 
-        buttons.emplace_back(sf::Vector2f(150, 350), sf::Vector2f(280, 55),
+        buttons.emplace_back(sf::Vector2f(150, 375), sf::Vector2f(280, 50),
                             "Voir chansons", font);
         buttons.back().onClick = [this]() { displaySongs(); };
 
-        buttons.emplace_back(sf::Vector2f(570, 200), sf::Vector2f(280, 55),
+        buttons.emplace_back(sf::Vector2f(570, 180), sf::Vector2f(280, 50),
                             "Statistiques BDD", font);
         buttons.back().onClick = [this]() { displayStats(); };
 
-        buttons.emplace_back(sf::Vector2f(570, 275), sf::Vector2f(280, 55),
+        buttons.emplace_back(sf::Vector2f(570, 245), sf::Vector2f(280, 50),
                             "Historique", font);
         buttons.back().onClick = [this]() { displayHistory(); };
 
-        buttons.emplace_back(sf::Vector2f(570, 350), sf::Vector2f(280, 55),
+        buttons.emplace_back(sf::Vector2f(570, 310), sf::Vector2f(280, 50),
                             "Vider BDD", font);
-        buttons.back().onClick = [this]() { clearDatabase(); };
+        buttons.back().onClick = [this]() { setupConfirmClearScreen(); };
 
-        buttons.emplace_back(sf::Vector2f(360, 450), sf::Vector2f(280, 55),
+        buttons.emplace_back(sf::Vector2f(570, 375), sf::Vector2f(280, 50),
                             "Quitter", font);
         buttons.back().onClick = [this]() { window.close(); };
     }
@@ -206,6 +212,29 @@ namespace gui {
         buttons.back().onClick = [this]() { indexAllFiles(); };
 
         buttons.emplace_back(sf::Vector2f(300, 480), sf::Vector2f(400, 60),
+                            "Retour au menu", font);
+        buttons.back().onClick = [this]() { setupMainMenu(); };
+    }
+
+    void GUI::setupIndexingSingleScreen() {
+        buttons.clear();
+        currentScreen = Screen::INDEXING_SINGLE;
+        statusMessage = "Selectionnez un fichier audio a indexer";
+
+        buttons.emplace_back(sf::Vector2f(300, 300), sf::Vector2f(400, 60),
+                            "Choisir un fichier audio", font);
+        buttons.back().onClick = [this]() {
+            selectedAudioPath = openFileDialog();
+            if (!selectedAudioPath.empty()) {
+                statusMessage = "Fichier selectionne: " + fs::path(selectedAudioPath).filename().string();
+            }
+        };
+
+        buttons.emplace_back(sf::Vector2f(300, 380), sf::Vector2f(400, 60),
+                            "Indexer le fichier", font);
+        buttons.back().onClick = [this]() { indexSingleFile(); };
+
+        buttons.emplace_back(sf::Vector2f(300, 460), sf::Vector2f(400, 60),
                             "Retour au menu", font);
         buttons.back().onClick = [this]() { setupMainMenu(); };
     }
@@ -330,6 +359,107 @@ namespace gui {
         statusMessage = "Indexation terminee! " + std::to_string(wavFiles.size()) + " fichiers traites.";
         progressBar.setProgress(0.0f);
         progressBar.setText("");
+    }
+
+    void GUI::indexSingleFile() {
+        if (selectedAudioPath.empty()) {
+            statusMessage = "Veuillez d'abord selectionner un fichier audio!";
+            return;
+        }
+
+        if (!fs::exists(selectedAudioPath)) {
+            statusMessage = "Erreur: le fichier n'existe pas!";
+            return;
+        }
+
+        statusMessage = "Indexation en cours...";
+        progressBar.setProgress(0.1f);
+        progressBar.setText("Chargement du fichier...");
+        handleEvents();
+        render();
+
+        try {
+            std::string filename = fs::path(selectedAudioPath).filename().string();
+            std::string nameWithoutExt = filename.substr(0, filename.find_last_of('.'));
+            size_t underscorePos = nameWithoutExt.find('_');
+
+            database::Song song;
+            if (underscorePos != std::string::npos) {
+                song.artist = nameWithoutExt.substr(0, underscorePos);
+                song.title = nameWithoutExt.substr(underscorePos + 1);
+                for (char& c : song.artist) if (c == '_') c = ' ';
+                for (char& c : song.title) if (c == '_') c = ' ';
+            } else {
+                song.artist = "Unknown";
+                song.title = nameWithoutExt;
+            }
+
+            progressBar.setProgress(0.2f);
+            progressBar.setText("Chargement audio...");
+            handleEvents();
+            render();
+
+            audio::WavData wav = audio::loadWav(selectedAudioPath);
+            song.duration = wav.samples.size() / (float)wav.sampleRate;
+
+            progressBar.setProgress(0.3f);
+            progressBar.setText("Decoupage en frames...");
+            handleEvents();
+            render();
+
+            int frameSize = 4096;
+            int hopSize = 2048;
+            auto frames = audio::makeFrames(wav.samples, frameSize, hopSize);
+            auto window = audio::hannWindow(frameSize);
+
+            progressBar.setProgress(0.5f);
+            progressBar.setText("Calcul FFT et extraction des pics...");
+            handleEvents();
+            render();
+
+            std::vector<std::vector<fft::Peak>> allPeaks;
+            for (size_t frameIdx = 0; frameIdx < frames.size(); ++frameIdx) {
+                auto& frame = frames[frameIdx];
+
+                // Update UI every 100 frames
+                if (frameIdx % 100 == 0) {
+                    handleEvents();
+                }
+
+                for (size_t j = 0; j < frame.size(); ++j) {
+                    frame[j] *= window[j];
+                }
+                auto fftResult = fft::computeFFT(frame);
+                auto magnitude = fft::computeMagnitude(fftResult);
+                float maxMag = *std::max_element(magnitude.begin(), magnitude.end());
+                float threshold = maxMag * 0.01f;
+                auto peaks = fft::extractPeaks(magnitude, wav.sampleRate, threshold, 5);
+                allPeaks.push_back(peaks);
+            }
+
+            progressBar.setProgress(0.8f);
+            progressBar.setText("Generation des fingerprints...");
+            handleEvents();
+            render();
+
+            auto fingerprints = fingerprint::generateFingerprints(allPeaks, 5, 3);
+
+            progressBar.setProgress(0.9f);
+            progressBar.setText("Ajout a la base de donnees...");
+            handleEvents();
+            render();
+
+            db.addSong(song, fingerprints);
+
+            statusMessage = "Chanson ajoutee avec succes: " + song.artist + " - " + song.title;
+            progressBar.setProgress(0.0f);
+            progressBar.setText("");
+
+        } catch (const std::exception& e) {
+            statusMessage = "Erreur: " + std::string(e.what());
+            progressBar.setProgress(0.0f);
+            progressBar.setText("");
+        }
     }
 
     void GUI::searchAudio() {
@@ -476,6 +606,38 @@ namespace gui {
         setupResultsScreen();
     }
 
+    void GUI::setupConfirmClearScreen() {
+        buttons.clear();
+        currentScreen = Screen::CONFIRM_CLEAR;
+
+        searchResults.clear();
+        searchResults.push_back("");
+        searchResults.push_back("");
+        searchResults.push_back("       ATTENTION !");
+        searchResults.push_back("");
+        searchResults.push_back("  Etes-vous sur de vouloir vider la base de donnees ?");
+        searchResults.push_back("");
+        searchResults.push_back("  Cette action est irreversible.");
+        searchResults.push_back("");
+        auto songs = db.getAllSongs();
+        searchResults.push_back("  " + std::to_string(songs.size()) + " chanson(s) seront supprimee(s).");
+
+        statusMessage = "Confirmation requise pour vider la base de donnees";
+
+        // Bouton Confirmer (rouge)
+        buttons.emplace_back(sf::Vector2f(200, 450), sf::Vector2f(250, 60),
+                            "Confirmer", font);
+        buttons.back().onClick = [this]() {
+            clearDatabase();
+            setupMainMenu();
+        };
+
+        // Bouton Retour accueil (vert)
+        buttons.emplace_back(sf::Vector2f(550, 450), sf::Vector2f(250, 60),
+                            "Retour accueil", font);
+        buttons.back().onClick = [this]() { setupMainMenu(); };
+    }
+
     void GUI::clearDatabase() {
         db.clear();
         statusMessage = "Base de donnees videe avec succes!";
@@ -565,8 +727,10 @@ namespace gui {
 
             if (const auto* mousePressed = event->getIf<sf::Event::MouseButtonPressed>()) {
                 if (mousePressed->button == sf::Mouse::Button::Left) {
-                    sf::Vector2f mousePos(static_cast<float>(mousePressed->position.x),
-                                         static_cast<float>(mousePressed->position.y));
+                    // Convertir les coordonnées pixel en coordonnées monde (important pour le plein écran)
+                    sf::Vector2i pixelPos(mousePressed->position.x, mousePressed->position.y);
+                    sf::Vector2f mousePos = window.mapPixelToCoords(pixelPos);
+
                     for (auto& button : buttons) {
                         if (button.contains(mousePos) && button.onClick) {
                             button.onClick();
@@ -597,15 +761,8 @@ namespace gui {
         window.draw(titleText);
         window.draw(subtitle);
 
-        for (auto& button : buttons) {
-            button.draw(window);
-        }
-
-        if (currentScreen == Screen::INDEXING || currentScreen == Screen::SEARCHING) {
-            progressBar.draw(window);
-        }
-
-        if (currentScreen == Screen::RESULTS || currentScreen == Screen::VIEW_SONGS) {
+        // Dessiner le resultBox AVANT les boutons pour éviter qu'il les cache
+        if (currentScreen == Screen::RESULTS || currentScreen == Screen::VIEW_SONGS || currentScreen == Screen::CONFIRM_CLEAR) {
             window.draw(resultBox);
 
             sf::Text resultText(font);
@@ -615,19 +772,31 @@ namespace gui {
             float yPos = 200;
             for (const auto& line : searchResults) {
                 // Colorer differemment selon le type de ligne
-                if (line.find("Match #") != std::string::npos ||
+                if (line.find("ATTENTION") != std::string::npos) {
+                    resultText.setFillColor(sf::Color(255, 80, 80));  // Red for warning
+                    resultText.setStyle(sf::Text::Bold);
+                    resultText.setCharacterSize(24);
+                } else if (line.find("Match #") != std::string::npos ||
                     line.find("ID:") != std::string::npos) {
                     resultText.setFillColor(sf::Color(30, 215, 96));  // Green for titles
                     resultText.setStyle(sf::Text::Bold);
+                    resultText.setCharacterSize(17);
                 } else if (line.find("MATCH CONFIRME") != std::string::npos) {
                     resultText.setFillColor(sf::Color(30, 215, 96));
                     resultText.setStyle(sf::Text::Bold);
+                    resultText.setCharacterSize(17);
                 } else if (line.find("Confiance") != std::string::npos) {
                     resultText.setFillColor(sf::Color(180, 180, 180));
                     resultText.setStyle(sf::Text::Regular);
+                    resultText.setCharacterSize(17);
+                } else if (line.find("irreversible") != std::string::npos) {
+                    resultText.setFillColor(sf::Color(255, 120, 120));
+                    resultText.setStyle(sf::Text::Italic);
+                    resultText.setCharacterSize(16);
                 } else {
                     resultText.setFillColor(sf::Color(200, 200, 200));
                     resultText.setStyle(sf::Text::Regular);
+                    resultText.setCharacterSize(17);
                 }
 
                 resultText.setString(line);
@@ -636,6 +805,15 @@ namespace gui {
                 yPos += 28;
                 if (yPos > 530) break;
             }
+        }
+
+        // Dessiner les boutons APRES le resultBox pour qu'ils soient visibles
+        for (auto& button : buttons) {
+            button.draw(window);
+        }
+
+        if (currentScreen == Screen::INDEXING || currentScreen == Screen::INDEXING_SINGLE || currentScreen == Screen::SEARCHING) {
+            progressBar.draw(window);
         }
 
         statusText.setString(statusMessage);
