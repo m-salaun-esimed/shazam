@@ -328,8 +328,8 @@ namespace gui {
         }
 
         statusMessage = "Indexation terminee! " + std::to_string(wavFiles.size()) + " fichiers traites.";
-        progressBar.setProgress(1.0f);
-        progressBar.setText("Termine!");
+        progressBar.setProgress(0.0f);
+        progressBar.setText("");
     }
 
     void GUI::searchAudio() {
@@ -423,16 +423,8 @@ namespace gui {
                     searchResults.push_back(oss.str());
 
                     oss.str("");
-                    oss << "  Score: " << match.score << " | Confiance: "
+                    oss << "  Score: " << match.score << " matches | Confiance: "
                         << std::fixed << std::setprecision(1) << match.confidence << "%";
-                    searchResults.push_back(oss.str());
-
-                    // Calculate time in song
-                    int timeInSeconds = (match.timeOffset * hopSize) / wav.sampleRate;
-                    int minutes = timeInSeconds / 60;
-                    int seconds = timeInSeconds % 60;
-                    oss.str("");
-                    oss << "  Trouve a " << minutes << "m " << seconds << "s dans la chanson";
                     searchResults.push_back(oss.str());
 
                     searchResults.push_back("  MATCH CONFIRME!");
@@ -453,8 +445,8 @@ namespace gui {
             }
 
             statusMessage = "Recherche terminee!";
-            progressBar.setProgress(1.0f);
-            progressBar.setText("Termine!");
+            progressBar.setProgress(0.0f);
+            progressBar.setText("");
             setupResultsScreen();
 
         } catch (const std::exception& e) {

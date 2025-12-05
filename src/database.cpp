@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <iostream>
 #include <algorithm>
+#include <chrono>
+#include <unordered_map>
 
 namespace database {
 
@@ -131,72 +133,77 @@ namespace database {
     }
 
     std::vector<Match> Database::search(const std::vector<fingerprint::Fingerprint>& queryFingerprints, int minScore) {
+        auto searchStart = std::chrono::high_resolution_clock::now();
+
         std::cout << "\n=== DEBUT RECHERCHE ===" << std::endl;
         std::cout << "Nombre de fingerprints de la query: " << queryFingerprints.size() << std::endl;
         std::cout << "Nombre de hashs uniques dans la BDD: " << fingerprintIndex.size() << std::endl;
 
-        // Map pour compter les matches: [songId][offsetDelta] -> count
-        std::map<int, std::map<int, int>> matchCounts;
+        // Structure optimisée : unordered_map pour O(1) + tracking du meilleur offset
+        struct SongMatch {
+            std::unordered_map<int, int> offsetCounts;  // offset -> count
+            int bestOffset = 0;
+            int bestCount = 0;
+        };
+
+        std::unordered_map<int, SongMatch> matchCounts;  // songId -> SongMatch
         int totalMatches = 0;
 
-        // Phase 1: Compter les matches (time-invariant)
+        // Phase 1: Compter les matches avec tracking du meilleur offset en temps réel
         for (const auto& queryFp : queryFingerprints) {
             auto it = fingerprintIndex.find(queryFp.hash);
             if (it != fingerprintIndex.end()) {
                 totalMatches++;
                 for (const auto& storedFp : it->second) {
-                    // Calcul de l'offset delta (différence de position)
-                    // Cela permet de trouver la chanson même si l'extrait vient du milieu
                     int offsetDelta = storedFp.timeOffset - queryFp.timeOffset;
-                    matchCounts[storedFp.songId][offsetDelta]++;
+
+                    auto& songMatch = matchCounts[storedFp.songId];
+                    int newCount = ++songMatch.offsetCounts[offsetDelta];
+
+                    // Mettre à jour le meilleur offset en temps réel (évite le parcours complet)
+                    if (newCount > songMatch.bestCount) {
+                        songMatch.bestCount = newCount;
+                        songMatch.bestOffset = offsetDelta;
+                    }
                 }
             }
         }
 
-        std::cout << "Nombre de fingerprints matches: " << totalMatches << " / " << queryFingerprints.size()
-                  << " (" << (100.0f * totalMatches / queryFingerprints.size()) << "%)" << std::endl;
+        auto phase1End = std::chrono::high_resolution_clock::now();
+        auto phase1Ms = std::chrono::duration_cast<std::chrono::milliseconds>(phase1End - searchStart).count();
 
-        // Phase 2: Trouver le meilleur offset pour chaque chanson
+        std::cout << "Nombre de fingerprints matches: " << totalMatches << " / " << queryFingerprints.size()
+                  << " (" << (100.0f * totalMatches / queryFingerprints.size()) << "%) [" << phase1Ms << "ms]" << std::endl;
+
+        // Phase 2: Créer les résultats (le meilleur offset est déjà connu)
         std::vector<Match> candidateMatches;
+        candidateMatches.reserve(matchCounts.size());  // Pré-allocation
 
         std::cout << "Chansons candidates: " << matchCounts.size() << std::endl;
 
-        for (const auto& [songId, offsetMap] : matchCounts) {
-            // Trouver l'offset avec le plus de matches
-            int bestOffset = 0;
-            int bestCount = 0;
-
-            for (const auto& [offset, count] : offsetMap) {
-                if (count > bestCount) {
-                    bestCount = count;
-                    bestOffset = offset;
-                }
-            }
-
-            auto songIt = songs.find(songId);
-            if (songIt != songs.end()) {
-                std::cout << "  Chanson ID " << songId << " (" << songIt->second.title
-                         << "): " << bestCount << " matches a l'offset " << bestOffset << std::endl;
-            }
-
-            if (bestCount >= minScore) {
+        for (const auto& [songId, songMatch] : matchCounts) {
+            if (songMatch.bestCount >= minScore) {
+                auto songIt = songs.find(songId);
                 if (songIt != songs.end()) {
+                    std::cout << "  Chanson ID " << songId << " (" << songIt->second.title
+                             << "): " << songMatch.bestCount << " matches a l'offset " << songMatch.bestOffset << std::endl;
+
                     Match match;
                     match.song = songIt->second;
-                    match.score = bestCount;
-                    match.timeOffset = bestOffset;
+                    match.score = songMatch.bestCount;
+                    match.timeOffset = songMatch.bestOffset;
 
                     // Calcul de confiance amélioré
                     int songFpCount = songFingerprintCounts[songId];
                     int denominator = std::min(static_cast<int>(queryFingerprints.size()), songFpCount);
 
                     // Confiance basée sur le ratio de matches
-                    match.confidence = (bestCount * 100.0f) / denominator;
+                    match.confidence = (songMatch.bestCount * 100.0f) / denominator;
 
                     // Bonus si beaucoup de matches à un même offset (forte cohérence temporelle)
                     float coherenceBonus = 0.0f;
-                    if (bestCount > 20) {
-                        coherenceBonus = std::min(10.0f, (bestCount - 20) * 0.2f);
+                    if (songMatch.bestCount > 20) {
+                        coherenceBonus = std::min(10.0f, (songMatch.bestCount - 20) * 0.2f);
                     }
                     match.confidence += coherenceBonus;
 
